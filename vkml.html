@@ -150,7 +150,7 @@
             // ORDER MATTERS: Buffer and Process polyfills must come BEFORE bitcoinjs-lib in the worker too
             self.importScripts("https://unpkg.com/buffer@6.0.3/index.js");
             self.importScripts("https://unpkg.com/process@0.11.10/browser.js"); 
-            self.importScripts("https://unpkg.com/bitcoinjs-lib@6.1.7/dist/bitcoinjs-lib.js");
+            self.importScripts("https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/0.2.0-1/bitcoinjs-min.js");
 
             // Generates a random BigInt within a given range.
             // Uses crypto.getRandomValues for cryptographic randomness.
