@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Crypto Key & Hunter Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Libraries for cryptography -->
+    <script src="https://bundle.run/buffer@6.0.3"></script>
+    <script src="https://bundle.run/bigi@1.4.2"></script>
+    <script src="https://bundle.run/bitcoinjs-lib@5.2.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0a;
+            color: #e5e7eb;
+        }
+        .glass-card {
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(55, 65, 81, 0.3);
+        }
+        .glowing-border {
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.5), 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+        .loader {
+            border-top-color: #3b82f6;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .tab-btn {
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            color: #9ca3af;
+        }
+        .tab-btn.active {
+            border-bottom-color: #3b82f6;
+            color: white;
+            background: linear-gradient(to top, rgba(59, 130, 246, 0.1), transparent);
+        }
+        .main-tab-content, .sub-tab-content, .hunter-tab-content { display: none; }
+        .main-tab-content.active, .sub-tab-content.active, .hunter-tab-content.active { display: block; }
+        
+        .highlight-found {
+            background: linear-gradient(90deg, #16a34a, #10b981);
+            color: white;
+            animation: pulse-green 2s infinite;
+        }
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 15px #16a34a; }
+            50% { box-shadow: 0 0 5px #10b981; }
+        }
+        .highlight-search {
+            background-color: #ca8a04;
+        }
+        .btn-primary {
+             background: linear-gradient(90deg, #3b82f6, #60a5fa);
+             transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 15px rgba(96, 165, 250, 0.6);
+            transform: translateY(-2px);
+        }
+        .btn-success {
+             background: linear-gradient(90deg, #16a34a, #10b981);
+        }
+        .btn-danger {
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl md:text-5xl font-bold text-white tracking-wider">Advanced Crypto Key & Hunter Tool</h1>
+            <p class="text-gray-400 mt-2">Generate keys, find WIF pages, and hunt for addresses with balances.</p>
+        </header>
+
+        <!-- Main Controls -->
+        <div class="glass-card p-6 rounded-2xl shadow-lg mb-8 glowing-border">
+            <div class="flex border-b border-gray-700 mb-6">
+                <button class="tab-btn main-tab-btn flex-1 py-3 px-4 text-sm font-medium active" data-main-tab="generator">Generator</button>
+                <button class="tab-btn main-tab-btn flex-1 py-3 px-4 text-sm font-medium" data-main-tab="hunter">Hunter Mode</button>
+            </div>
+
+            <!-- Generator Tab -->
+            <div id="generator" class="main-tab-content active">
+                <!-- 
+                  FIX: Removed lg:grid-cols-2 to stack the generator cards vertically, making them appear smaller/more compact.
+                -->
+                <div class="grid grid-cols-1 gap-8">
+                    <!-- Generation Controls -->
+                    <div class="glass-card p-6 rounded-xl">
+                        <h2 class="text-2xl font-semibold mb-4 text-white">1. Generation Controls</h2>
+                        <div class="space-y-4">
+                             <div>
+                                <label for="cryptoSelect" class="block text-sm font-medium text-gray-300 mb-1">Cryptocurrency</label>
+                                <select id="cryptoSelect" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="BTC">Bitcoin (BTC)</option>
+                                    <option value="ETH">Ethereum (ETH)</option>
+                                    <option value="LTC">Litecoin (LTC)</option>
+                                    <option value="DOGE">Dogecoin (DOGE)</option>
+                                </select>
+                            </div>
+                            <!-- Sub Tabs -->
+                            <div class="flex border-b border-gray-700">
+                                <button class="tab-btn sub-tab-btn active" data-sub-tab="pageMode">Page</button>
+                                <button class="tab-btn sub-tab-btn" data-sub-tab="randomMode">Random</button>
+                                <button class="tab-btn sub-tab-btn" data-sub-tab="rangeMode">Random Range</button>
+                            </div>
+                            <div id="pageMode" class="sub-tab-content active space-y-4 mt-4">
+                                <input type="text" id="pageNumber" value="1" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white" placeholder="Page Number">
+                            </div>
+                            <div id="randomMode" class="sub-tab-content mt-4"><p class="text-gray-400 text-sm">Generates a set of random keys.</p></div>
+                            <div id="rangeMode" class="sub-tab-content space-y-4 mt-4">
+                                <input type="text" id="rangeMin" value="1" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white" placeholder="Min Private Key (Decimal)">
+                                <input type="text" id="rangeMax" value="4096" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white" placeholder="Max Private Key (Decimal)">
+                            </div>
+                             <div>
+                                <label for="keysPerPage" class="block text-sm font-medium text-gray-300 mb-1">Number of Keys</label>
+                                <input type="number" id="keysPerPage" value="10" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white">
+                            </div>
+                            <button id="generateBtn" class="w-full btn-primary text-white font-bold py-3 px-4 rounded-lg text-lg">Generate Keys</button>
+                        </div>
+                    </div>
+                    <!-- WIF Finder -->
+                    <div class="glass-card p-6 rounded-xl">
+                        <h2 class="text-2xl font-semibold mb-4 text-white">2. Find Page of WIF</h2>
+                        <div class="space-y-4">
+                            <input type="text" id="wifInput" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white" placeholder="Private Key (WIF or Hex)">
+                            <input type="number" id="keysPerPageFinder" value="10" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white" placeholder="Keys Per Page">
+                            <button id="findPageBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition">Find Page</button>
+                        </div>
+                        <div id="pageResult" class="mt-4 text-center p-3 bg-gray-900 rounded-lg min-h-[48px] flex items-center justify-center"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hunter Mode Tab -->
+            <div id="hunter" class="main-tab-content">
+                 <h2 class="text-2xl font-semibold mb-4 text-white">Hunter Mode Controls</h2>
+                 <p class="text-yellow-400 text-sm mb-4 bg-yellow-900/50 p-3 rounded-lg border border-yellow-400/30"><strong>Warning:</strong> Hunter mode continuously makes requests to external APIs. Use responsibly. The browser may become unresponsive during intensive searches.</p>
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="glass-card p-6 rounded-xl">
+                        <div class="flex border-b border-gray-700 mb-4">
+                            <button class="tab-btn hunter-tab-btn active" data-hunter-tab="huntRandom">Random Hunt</button>
+                            <button class="tab-btn hunter-tab-btn" data-hunter-tab="huntRange">Range Hunt</button>
+                            <button class="tab-btn hunter-tab-btn" data-hunter-tab="huntTarget">Target Hunt</button>
+                        </div>
+                        <div id="huntRandom" class="hunter-tab-content active"><p class="text-gray-400">Continuously generates random keys and checks their balance.</p></div>
+                        <div id="huntRange" class="hunter-tab-content space-y-2">
+                             <input type="text" id="huntRangeMinHex" class="w-full bg-gray-900 border-gray-600 rounded-lg px-3 py-2 text-white" placeholder="Min Private Key (HEX)">
+                             <input type="text" id="huntRangeMaxHex" class="w-full bg-gray-900 border-gray-600 rounded-lg px-3 py-2 text-white" placeholder="Max Private Key (HEX)">
+                        </div>
+                        <div id="huntTarget" class="hunter-tab-content">
+                            <textarea id="targetAddresses" rows="4" class="w-full bg-gray-900 border-gray-600 rounded-lg p-2 text-white" placeholder="Enter target addresses, one per line."></textarea>
+                        </div>
+                    </div>
+                    <div class="glass-card p-6 rounded-xl">
+                        <div class="space-y-4">
+                            <div>
+                                <label for="apiDelay" class="block text-sm font-medium text-gray-300 mb-1">API Delay (ms)</label>
+                                <input type="number" id="apiDelay" value="250" class="w-full bg-gray-900 border-gray-600 rounded-lg px-3 py-2 text-white">
+                            </div>
+                            <button id="startHuntBtn" class="w-full btn-success text-white font-bold py-3 px-4 rounded-lg text-lg flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
+                                Start Hunting
+                            </button>
+                            <button id="stopHuntBtn" class="w-full btn-danger text-white font-bold py-3 px-4 rounded-lg text-lg mt-2 hidden flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5z"/></svg>
+                                Stop Hunting
+                            </button>
+                        </div>
+                        <div id="huntStatus" class="mt-4 text-center p-3 bg-gray-900 rounded-lg min-h-[48px]">Awaiting command...</div>
+                    </div>
+                 </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsContainer" class="glass-card p-4 sm:p-6 rounded-2xl shadow-lg hidden">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
+                 <h3 class="text-xl font-semibold text-white">Generated Keys</h3>
+                 <div class="flex items-center gap-2">
+                    <input type="text" id="addressSearch" class="bg-gray-900 border border-gray-600 rounded-lg px-3 py-1.5 text-white text-sm" placeholder="Find address in this list...">
+                    <button id="checkBalanceBtn" class="btn-success text-white font-bold py-1.5 px-3 rounded-lg text-sm transition hidden">Check Balances</button>
+                 </div>
+            </div>
+             <div id="loader" class="hidden my-4 flex justify-center items-center">
+                <div class="loader ease-linear rounded-full border-4 border-t-4 h-12 w-12"></div>
+                <p id="loaderText" class="ml-4 text-gray-300">Generating keys...</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-700">
+                    <thead class="bg-gray-900/50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Private Key (Hex)</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Private Key (WIF/Default)</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Address (Compressed/Default)</th>
+                            <th id="uncompressedHeader" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Address (Uncompressed)</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="keysTableBody" class="divide-y divide-gray-800"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Found Keys Log -->
+        <div id="foundKeysContainer" class="mt-8 glass-card p-6 rounded-2xl shadow-lg hidden glowing-border">
+            <h3 class="text-xl font-semibold text-white mb-4">🎉 Found Keys Log 🎉</h3>
+            <textarea id="foundKeysLog" rows="5" class="w-full bg-black border-gray-600 rounded-lg p-3 text-green-300 font-mono text-sm" readonly></textarea>
+        </div>
+        
+        <!-- Modal -->
+        <div id="messageModal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden z-50">
+            <div class="glass-card p-6 w-11/12 md:w-1/3 text-center border rounded-xl">
+                <h3 id="modalTitle" class="text-xl font-bold text-white mb-4"></h3>
+                <p id="modalMessage" class="text-gray-300 mb-6"></p>
+                <button id="modalCloseBtn" class="btn-primary text-white font-bold py-2 px-4 rounded-lg">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // --- Library Setup & Configs ---
+    const bitcoin = bitcoinjsLib;
+    const Buffer = buffer.Buffer;
+    bitcoin.BigInteger = bigi;
+    const cryptoConfigs = {
+        BTC: { 
+            name: 'Bitcoin', 
+            network: bitcoin.networks.bitcoin, 
+            balanceAPIs: [
+                { url: addr => `https://blockchain.info/q/addressbalance/${addr}`, format: 'plaintext'},
+                { url: addr => `https://api.blockcypher.com/v1/btc/main/addrs/${addr}/balance`, format: 'json', path: 'final_balance' },
+                { url: addr => `https://api.blockstream.info/address/${addr}`, format: 'json', path: 'chain_stats.funded_txo_sum' }
+            ],
+            balanceFactor: 1e8, 
+            explorer: addr => `https://www.blockchain.com/btc/address/${addr}`
+        },
+        ETH: { 
+            name: 'Ethereum', 
+            balanceAPIs: [
+                { url: addr => `https://api.blockcypher.com/v1/eth/main/addrs/${addr}/balance`, format: 'json', path: 'final_balance' }
+            ],
+            balanceFactor: 1e18, 
+            explorer: addr => `https://etherscan.io/address/${addr}`
+        },
+        LTC: { 
+            name: 'Litecoin', 
+            network: { messagePrefix: '\x19Litecoin Signed Message:\n', bech32: 'ltc', bip32: { public: 0x019da462, private: 0x019d9cfe }, pubKeyHash: 0x30, scriptHash: 0x32, wif: 0xb0 }, 
+            balanceAPIs: [
+                { url: addr => `https://api.blockcypher.com/v1/ltc/main/addrs/${addr}/balance`, format: 'json', path: 'final_balance' }
+            ],
+            balanceFactor: 1e8, 
+            explorer: addr => `https://live.blockcypher.com/ltc/address/${addr}`
+        },
+        DOGE: { 
+            name: 'Dogecoin', 
+            network: { messagePrefix: '\x19Dogecoin Signed Message:\n', bip32: { public: 0x02facafd, private: 0x02fac398 }, pubKeyHash: 0x1e, scriptHash: 0x16, wif: 0x9e }, 
+            balanceAPIs: [
+                { url: addr => `https://api.blockcypher.com/v1/doge/main/addrs/${addr}/balance`, format: 'json', path: 'final_balance' }
+            ],
+            balanceFactor: 1e8, 
+            explorer: addr => `https://dogechain.info/address/${addr}`
+        }
+    };
+
+    // --- Global State ---
+    let isHunting = false;
+    let activeMainTab = 'generator';
+    let activeSubTab = 'pageMode';
+    let activeHunterTab = 'huntRandom';
+    let huntCounter = 0;
+    let apiIndex = 0;
+    
+    // --- DOM Elements ---
+    const dom = {
+        cryptoSelect: document.getElementById('cryptoSelect'),
+        generateBtn: document.getElementById('generateBtn'),
+        findPageBtn: document.getElementById('findPageBtn'),
+        startHuntBtn: document.getElementById('startHuntBtn'),
+        stopHuntBtn: document.getElementById('stopHuntBtn'),
+        checkBalanceBtn: document.getElementById('checkBalanceBtn'),
+        addressSearch: document.getElementById('addressSearch'),
+        pageResult: document.getElementById('pageResult'),
+        keysTableBody: document.getElementById('keysTableBody'),
+        resultsContainer: document.getElementById('resultsContainer'),
+        loader: document.getElementById('loader'),
+        loaderText: document.getElementById('loaderText'),
+        modal: document.getElementById('messageModal'),
+        modalTitle: document.getElementById('modalTitle'),
+        modalMessage: document.getElementById('modalMessage'),
+        modalCloseBtn: document.getElementById('modalCloseBtn'),
+        uncompressedHeader: document.getElementById('uncompressedHeader'),
+        huntStatus: document.getElementById('huntStatus'),
+        foundKeysContainer: document.getElementById('foundKeysContainer'),
+        foundKeysLog: document.getElementById('foundKeysLog'),
+        apiDelay: document.getElementById('apiDelay'),
+    };
+
+    // --- Utility Functions ---
+    const showMessage = (title, message) => { dom.modalTitle.textContent = title; dom.modalMessage.innerHTML = message; dom.modal.classList.remove('hidden'); };
+    const makeBigInt = n => { try { return bigi(n.toString()); } catch (e) { return bigi.ZERO; } };
+    const padTo32 = buf => { const p = Buffer.alloc(32); buf.copy(p, 32 - buf.length); return p; };
+    const getRandomBytes = size => { const b = new Uint8Array(size); window.crypto.getRandomValues(b); return Buffer.from(b); };
+    const getActiveConfig = () => cryptoConfigs[dom.cryptoSelect.value];
+    
+    // --- Core Logic ---
+    function generateKeyData(privateKeyBytes, config) {
+        const privateKeyHex = privateKeyBytes.toString('hex');
+        if (config.name === 'Ethereum') {
+            const wallet = new ethers.Wallet(privateKeyBytes);
+            return { privateKeyHex, privateKey: wallet.privateKey, address: wallet.address, uncompressedAddress: 'N/A' };
+        } else {
+            const keyPair = bitcoin.ECPair.fromPrivateKey(privateKeyBytes, { network: config.network });
+            const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network: config.network });
+            const uncompressedKeyPair = bitcoin.ECPair.fromPrivateKey(privateKeyBytes, { compressed: false, network: config.network });
+            const { address: uncompressedAddress } = bitcoin.payments.p2pkh({ pubkey: uncompressedKeyPair.publicKey, network: config.network });
+            return { privateKeyHex, privateKey: keyPair.toWIF(), address, uncompressedAddress };
+        }
+    }
+
+    async function generateKeys() {
+        dom.keysTableBody.innerHTML = '';
+        dom.resultsContainer.classList.remove('hidden');
+        dom.loader.classList.remove('hidden');
+        dom.loaderText.textContent = 'Generating keys...';
+        dom.checkBalanceBtn.classList.add('hidden');
+        await new Promise(r => setTimeout(r, 50));
+
+        const keysPerPage = parseInt(document.getElementById('keysPerPage').value, 10);
+        const config = getActiveConfig();
+        dom.uncompressedHeader.style.display = config.name === 'Ethereum' ? 'none' : '';
+
+        try {
+            for (let i = 0; i < keysPerPage; i++) {
+                let privateKeyBytes;
+                if (activeSubTab === 'pageMode') {
+                    const pageNumber = makeBigInt(document.getElementById('pageNumber').value);
+                    const currentSeed = pageNumber.subtract(bigi.ONE).multiply(makeBigInt(keysPerPage)).add(bigi.ONE).add(makeBigInt(i));
+                    privateKeyBytes = padTo32(Buffer.from(currentSeed.toByteArray()));
+                } else if (activeSubTab === 'randomMode') {
+                    privateKeyBytes = getRandomBytes(32);
+                } else { // rangeMode
+                    const min = makeBigInt(document.getElementById('rangeMin').value);
+                    const max = makeBigInt(document.getElementById('rangeMax').value);
+                    const range = max.subtract(min);
+                    let randomBI;
+                    do { randomBI = bigi.fromBuffer(getRandomBytes(32)); } while (randomBI.compareTo(range) > 0);
+                    privateKeyBytes = padTo32(Buffer.from(min.add(randomBI).toByteArray()));
+                }
+                appendKeyRow(generateKeyData(privateKeyBytes, config));
+            }
+        } catch (error) { showMessage('Generation Error', 'An error occurred. Check inputs.'); } 
+        finally {
+            dom.loader.classList.add('hidden');
+            if (dom.keysTableBody.rows.length > 0) dom.checkBalanceBtn.classList.remove('hidden');
+        }
+    }
+
+    function appendKeyRow(keyData, isHunt = false) {
+        const row = dom.keysTableBody.insertRow(isHunt ? 0 : -1);
+        if (isHunt && dom.keysTableBody.rows.length > 20) dom.keysTableBody.deleteRow(-1);
+        row.className = 'hover:bg-gray-800/50';
+        const config = getActiveConfig();
+        const uncompressedCellDisplay = config.name === 'Ethereum' ? 'none' : '';
+        row.innerHTML = `
+            <td class="px-6 py-4 text-sm text-gray-400 table-cell">${keyData.privateKeyHex}</td>
+            <td class="px-6 py-4 text-sm text-gray-400 table-cell">${keyData.privateKey}</td>
+            <td class="px-6 py-4 text-sm text-gray-400 table-cell" data-address="${keyData.address}"><a href="${config.explorer(keyData.address)}" target="_blank" class="text-blue-400 hover:underline">${keyData.address}</a></td>
+            <td class="px-6 py-4 text-sm text-gray-400 table-cell" style="display: ${uncompressedCellDisplay};" data-address-uncompressed="${keyData.uncompressedAddress}">${keyData.uncompressedAddress}</td>
+            <td class="px-6 py-4 text-sm text-gray-400 font-mono" data-balance-cell>...</td>
+        `;
+        return row;
+    }
+
+    async function checkBalance(address, config) {
+        const api = config.balanceAPIs[apiIndex % config.balanceAPIs.length];
+        apiIndex++; // Rotate API for next call
+        try {
+            const response = await fetch(api.url(address));
+            if (!response.ok && response.status !== 404) {
+                 throw new Error(`API returned status ${response.status}`);
+            }
+            
+            let balance = 0;
+            if (api.format === 'json') {
+                const data = await response.json();
+                // Handle nested paths for different API structures
+                let value = data;
+                if (api.path) {
+                    for (const key of api.path.split('.')) {
+                        value = value ? value[key] : 0;
+                    }
+                }
+                balance = value || 0;
+            } else { // plaintext
+                const textData = await response.text();
+                balance = parseFloat(textData) || 0;
+            }
+            return { balance: balance / config.balanceFactor, error: false };
+        } catch (error) { 
+            console.error(`Balance check error with ${api.url(address)}:`, error);
+            return { balance: 0, error: true }; 
+        }
+    }
+
+    async function checkAllBalances() {
+        dom.loader.classList.remove('hidden');
+        dom.loaderText.textContent = 'Checking balances...';
+        const config = getActiveConfig();
+        const rows = dom.keysTableBody.getElementsByTagName('tr');
+        
+        for (const row of rows) {
+            const addressCell = row.querySelector('[data-address]');
+            const balanceCell = row.querySelector('[data-balance-cell]');
+            if (addressCell && balanceCell) {
+                const address = addressCell.dataset.address;
+                const { balance, error } = await checkBalance(address, config);
+                if (error) {
+                    balanceCell.innerHTML = `<span class="text-red-400">Error</span>`;
+                } else {
+                    const finalBalance = balance.toFixed(8);
+                    balanceCell.innerHTML = `<span class="${finalBalance > 0 ? 'text-green-400' : 'text-gray-500'}">${finalBalance}</span>`;
+                }
+                await new Promise(r => setTimeout(r, 200)); 
+            }
+        }
+        dom.loader.classList.add('hidden');
+    }
+
+    function findWifPage() {
+        dom.pageResult.textContent = '';
+        const wifString = document.getElementById('wifInput').value;
+        const keysPerPage = parseInt(document.getElementById('keysPerPageFinder').value, 10);
+        const config = getActiveConfig();
+
+        if (!wifString || isNaN(keysPerPage) || keysPerPage <= 0) {
+            showMessage('Invalid Input', 'Please enter a valid private key and a positive number for keys per page.');
+            return;
+        }
+
+        try {
+            let privateKeyBytes;
+            if (config.name === 'Ethereum' || /^[0-9a-fA-F]{64}$/.test(wifString)) {
+                privateKeyBytes = Buffer.from(wifString.startsWith('0x') ? wifString.slice(2) : wifString, 'hex');
+            } else {
+                const keyPair = bitcoin.ECPair.fromWIF(wifString, config.network);
+                privateKeyBytes = keyPair.privateKey;
+            }
+            
+            const privateKeyInt = bigi.fromBuffer(privateKeyBytes);
+            const keysPerPageBI = makeBigInt(keysPerPage.toString());
+            const page = privateKeyInt.divide(keysPerPageBI);
+            const finalPage = page.add(bigi.ONE);
+
+            dom.pageResult.innerHTML = `<span class="font-bold text-lg text-green-400">${finalPage.toString()}</span>`;
+        } catch (error) {
+            console.error("Error decoding private key:", error);
+            dom.pageResult.innerHTML = `<span class="text-red-400">Error: Invalid private key.</span>`;
+        }
+    }
+
+    function searchAddress() {
+        const searchTerm = dom.addressSearch.value.toLowerCase().trim();
+        const rows = dom.keysTableBody.getElementsByTagName('tr');
+        
+        for (const row of rows) {
+            row.classList.remove('highlight-search');
+            if (searchTerm) {
+                const address = row.querySelector('[data-address]')?.dataset.address.toLowerCase();
+                const uncompressedAddress = row.querySelector('[data-address-uncompressed]')?.dataset.addressUncompressed?.toLowerCase();
+                if ((address && address.includes(searchTerm)) || (uncompressedAddress && uncompressedAddress.includes(searchTerm))) {
+                    row.classList.add('highlight-search');
+                }
+            }
+        }
+    }
+
+    // --- Hunter Mode Logic ---
+    async function startHunting() {
+        isHunting = true;
+        huntCounter = 0;
+        dom.startHuntBtn.classList.add('hidden');
+        dom.stopHuntBtn.classList.remove('hidden');
+        dom.resultsContainer.classList.remove('hidden');
+        dom.keysTableBody.innerHTML = '';
+
+        const config = getActiveConfig();
+        let currentKey, targetSet;
+
+        if (activeHunterTab === 'huntRange') {
+            try {
+                currentKey = bigi.fromHex(document.getElementById('huntRangeMinHex').value);
+            } catch (e) { showMessage('Invalid Input', 'Min Hex for Range Hunt is invalid.'); isHunting = false; stopHunting(); return; }
+        }
+        if (activeHunterTab === 'huntTarget') {
+            const addresses = document.getElementById('targetAddresses').value.split('\n').map(a => a.trim().toLowerCase()).filter(Boolean);
+            if (addresses.length === 0) { showMessage('Invalid Input', 'Please provide at least one target address.'); isHunting = false; stopHunting(); return; }
+            targetSet = new Set(addresses);
+        }
+
+        const delay = parseInt(dom.apiDelay.value, 10) || 250;
+
+        while (isHunting) {
+            let privateKeyBytes;
+            if (activeHunterTab === 'huntRandom') {
+                privateKeyBytes = getRandomBytes(32);
+            } else if (activeHunterTab === 'huntRange') {
+                const maxHex = document.getElementById('huntRangeMaxHex').value;
+                if (currentKey.toHex() > maxHex) { showMessage('Range Complete', 'The specified hex range has been fully scanned.'); isHunting = false; break; }
+                privateKeyBytes = padTo32(Buffer.from(currentKey.toByteArray()));
+                currentKey = currentKey.add(bigi.ONE);
+            } else { // huntTarget
+                privateKeyBytes = getRandomBytes(32);
+            }
+
+            const keyData = generateKeyData(privateKeyBytes, config);
+            const newRow = appendKeyRow(keyData, true);
+            huntCounter++;
+            dom.huntStatus.textContent = `Hunting... Keys Checked: ${huntCounter}`;
+
+            if (activeHunterTab === 'huntTarget') {
+                if (targetSet.has(keyData.address.toLowerCase())) {
+                    isHunting = false;
+                    handleFound(keyData, newRow, "Target Address Match!");
+                }
+            } else {
+                const { balance, error } = await checkBalance(keyData.address, config);
+                if (error) { 
+                    newRow.querySelector('[data-balance-cell]').innerHTML = '<span class="text-yellow-400">API Error. Pausing...</span>'; 
+                    await new Promise(r => setTimeout(r, 2000)); // Pause on error before continuing
+                    newRow.querySelector('[data-balance-cell]').innerHTML = '...';
+                    continue; 
+                }
+                newRow.querySelector('[data-balance-cell]').textContent = balance.toFixed(8);
+                if (balance > 0) {
+                    isHunting = false;
+                    handleFound(keyData, newRow, `Balance Found: ${balance.toFixed(8)} ${config.name}!`);
+                }
+            }
+            await new Promise(r => setTimeout(r, delay));
+        }
+        stopHunting();
+    }
+
+    function stopHunting() {
+        isHunting = false;
+        dom.startHuntBtn.classList.remove('hidden');
+        dom.stopHuntBtn.classList.add('hidden');
+        dom.huntStatus.textContent = `Stopped. Total keys checked: ${huntCounter}.`;
+    }
+
+    function handleFound(keyData, row, message) {
+        row.classList.add('highlight-found');
+        dom.huntStatus.innerHTML = `<strong class="text-green-400">${message}</strong>`;
+        const logEntry = `
+-----------------------------------------
+FOUND: ${new Date().toISOString()}
+COIN: ${getActiveConfig().name}
+ADDRESS: ${keyData.address}
+PRIVATE KEY (WIF/DEFAULT): ${keyData.privateKey}
+PRIVATE KEY (HEX): ${keyData.privateKeyHex}
+-----------------------------------------
+`;
+        dom.foundKeysContainer.classList.remove('hidden');
+        dom.foundKeysLog.value += logEntry;
+        dom.foundKeysLog.scrollTop = dom.foundKeysLog.scrollHeight;
+    }
+
+    // --- Event Listeners ---
+    function setupTabSwitching(btnClass, contentClass, stateVarPrefix) {
+        document.querySelectorAll(`.${btnClass}`).forEach(button => {
+            button.addEventListener('click', (e) => {
+                document.querySelectorAll(`.${btnClass}`).forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                const tabId = e.currentTarget.dataset[stateVarPrefix + 'Tab'];
+                window['active' + stateVarPrefix.charAt(0).toUpperCase() + stateVarPrefix.slice(1) + 'Tab'] = tabId;
+                document.querySelectorAll(`.${contentClass}`).forEach(c => c.classList.remove('active'));
+                document.getElementById(tabId)?.classList.add('active');
+            });
+        });
+    }
+
+    setupTabSwitching('main-tab-btn', 'main-tab-content', 'main');
+    setupTabSwitching('sub-tab-btn', 'sub-tab-content', 'sub');
+    setupTabSwitching('hunter-tab-btn', 'hunter-tab-content', 'hunter');
+
+    dom.generateBtn.addEventListener('click', generateKeys);
+    dom.findPageBtn.addEventListener('click', findWifPage);
+    dom.checkBalanceBtn.addEventListener('click', checkAllBalances);
+    dom.addressSearch.addEventListener('input', searchAddress);
+    dom.startHuntBtn.addEventListener('click', startHunting);
+    dom.stopHuntBtn.addEventListener('click', stopHunting);
+    dom.modalCloseBtn.addEventListener('click', () => dom.modal.classList.add('hidden'));
+
+    </script>
+</body>
+</html>
